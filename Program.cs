@@ -24,6 +24,10 @@ namespace Interpretador
                     if (!String.IsNullOrEmpty(nomeArquivo))
                     {
                         Tokens = InterpretadorExpresseos.Interpreta(nomeArquivo);
+                        if (Tokens.Any(x => x == null) || Tokens == null)
+                        {
+                            return;
+                        }
                         ImprimeTokens.Imprime(Tokens);
                         break;
                     }
@@ -42,6 +46,17 @@ namespace Interpretador
                 {
                     Console.WriteLine("\nFavor inserir opcao correta (s/n)");
                 }
+            }
+
+            List<Arvore> arvores = Parser.CriaArvores(Tokens);
+
+            if (arvores.Any(x => x == null) || arvores == null)
+            {
+                Console.WriteLine("Existe valores inadequados no programa");
+            }
+            else
+            {
+
             }
 
             Console.ReadKey();
