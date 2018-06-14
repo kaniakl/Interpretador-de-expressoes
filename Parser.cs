@@ -21,7 +21,10 @@ namespace Interpretador
 
         private static Token RotulaPalavras(string linha)
         {
-            Token token = new Token();
+            Token token = new Token()
+            {
+                Texto = linha
+            };
             List<string> palavras = linha.Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
 
             for (int i = 0; i < palavras.Count; i++)
