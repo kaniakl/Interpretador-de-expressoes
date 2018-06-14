@@ -50,14 +50,14 @@ namespace Interpretador
 
             List<Arvore> arvores = Parser.CriaArvores(Tokens);
 
-            if (arvores.Any(x => x == null) || arvores == null)
-            {
-                Console.WriteLine("Existe valores inadequados no programa");
-            }
-            else
-            {
+            //if (arvores.Any(x => x == null) || arvores == null)
+            //{
+            //    Console.WriteLine("Existe valores inadequados no programa");
+            //}
+            //else
+            //{
 
-            }
+            //}
 
             Console.ReadKey();
         }

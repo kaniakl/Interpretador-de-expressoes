@@ -89,15 +89,54 @@ namespace Interpretador
         public static Arvore MontaArvore(Token token)
         {
             Stack<string> pilha = new Stack<string>();
+            Arvore arvore = null;
 
             if(!ValidaPrograma(token))
             {
                 return null;
             }
 
-
+            if(Regex.IsMatch(token.Texto, Dicionario.ATRIBUIDOR))
+            {
+                //Não é apenas uma expressão;
+                if(Regex.IsMatch(token.Texto, Dicionario.REGEX_OPERADORES))
+                {
+                    List<string> split = token.Texto.Split('=').ToList();
+                    string variavel = split[0].ToString();
+                    string expressao = split[1].ToString();
+                    arvore = new Arvore()
+                    {
+                        NoPrincipal = new No()
+                    };
+                    MontaArvoreDaExpressao(arvore.NoPrincipal, expressao);
+                }
+                else
+                {
+                    List<string> declaracaoVariavelSimples = token.Texto.Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x) && !x.Equals("var")).ToList();
+                    arvore = new Arvore()
+                    {
+                        NoPrincipal = new No()
+                        {
+                            Valor = declaracaoVariavelSimples[1],
+                            NoDireito = new No()
+                            {
+                                Valor = declaracaoVariavelSimples[2]
+                            },
+                            NoEsquerda = new No()
+                            {
+                                Valor = declaracaoVariavelSimples[0]
+                            }
+                        }
+                    };
+                }
+            }
 
             return null;
+        }
+
+        public static void MontaArvoreDaExpressao(No no, string expressao)
+        {
+
         }
 
         public static bool ValidaPrograma(Token token)
