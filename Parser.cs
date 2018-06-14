@@ -103,7 +103,8 @@ namespace Interpretador
                 {
                     List<string> split = token.Texto.Split('=').ToList();
                     string variavel = split[0].ToString();
-                    string expressao = split[1].ToString();
+                    List<string> expressao = split[1].Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
+
                     arvore = new Arvore()
                     {
                         NoPrincipal = new No()
@@ -134,9 +135,25 @@ namespace Interpretador
             return null;
         }
 
-        public static void MontaArvoreDaExpressao(No no, string expressao)
+        public static void MontaArvoreDaExpressao(No no, List<string> expressao)
         {
-
+            //string valor = String.Empty;
+            //for(int i = expressao.Count - 1; i > 0; i--)
+            //{
+            //    if(Regex.IsMatch(expressao[i], Dicionario.DELIMITADORES))
+            //    {
+            //        valor = expressao[i].ToString();
+            //        string expressaoSplit = String.Join<string>(" ", expressao);
+            //        List<string> expressaoTratada = expressaoSplit.Split(valor[0]).ToList();
+            //        List<string> expressaoDireita = expressaoTratada[0].ToString().Split(' ').ToList();
+            //        List<string> expressaoEsquerda = expressaoTratada[1].ToString().Split(' ').ToList();
+            //        no.Valor = valor;
+            //        no.NoDireito = new No();
+            //        no.NoEsquerda = new No();
+            //        MontaArvoreDaExpressao(no.NoDireito, expressaoDireita);
+            //        MontaArvoreDaExpressao(no.NoEsquerda, expressaoEsquerda);
+            //    }
+            //}
         }
 
         public static bool ValidaPrograma(Token token)
