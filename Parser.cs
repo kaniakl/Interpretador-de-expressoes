@@ -14,7 +14,7 @@ namespace Interpretador
             foreach (string linha in fileLines)
             {
                 Token token = RotulaPalavras(linha);
-                if(token == null)
+                if (token == null)
                 {
                     return;
                 }
@@ -36,7 +36,7 @@ namespace Interpretador
                 {
                     token.Variaveis.Add(palavras[i]);
                 }
-                else if(Regex.IsMatch(palavras[i], Dicionario.ATRIBUIDOR))
+                else if (Regex.IsMatch(palavras[i], Dicionario.ATRIBUIDOR))
                 {
                     token.Atribuidor.Add(palavras[i]);
                 }
@@ -44,7 +44,7 @@ namespace Interpretador
                 {
                     token.Numeros.Add(palavras[i]);
                 }
-                else if(Regex.IsMatch(palavras[i], Dicionario.REGEX_ACESSO_VARIAVEL))
+                else if (Regex.IsMatch(palavras[i], Dicionario.REGEX_ACESSO_VARIAVEL))
                 {
                     token.AcessoValorVariaveis.Add(palavras[i]);
                 }
@@ -52,7 +52,7 @@ namespace Interpretador
                 {
                     token.Operadores.Add(palavras[i]);
                 }
-                else if(Regex.IsMatch(palavras[i], Dicionario.DELIMITADORES))
+                else if (Regex.IsMatch(palavras[i], Dicionario.DELIMITADORES))
                 {
                     token.Delimitadores.Add(palavras[i]);
                 }
@@ -73,33 +73,32 @@ namespace Interpretador
         {
             List<Arvore> arvores = new List<Arvore>();
 
-            foreach(Token token in Tokens)
+            foreach (Token token in Tokens)
             {
                 Arvore arvore = MontaArvore(token);
-                if(arvore == null)
+                if (arvore == null)
                 {
                     return null;
                 }
                 arvores.Add(arvore);
             }
 
-            return null;
+            return arvores.ToList();
         }
 
         public static Arvore MontaArvore(Token token)
         {
-            Stack<string> pilha = new Stack<string>();
             Arvore arvore = null;
 
-            if(!ValidaPrograma(token))
+            if (!ValidaPrograma(token))
             {
                 return null;
             }
 
-            if(Regex.IsMatch(token.Texto, Dicionario.ATRIBUIDOR))
+            if (Regex.IsMatch(token.Texto, Dicionario.ATRIBUIDOR))
             {
                 //Não é apenas uma expressão;
-                if(Regex.IsMatch(token.Texto, Dicionario.REGEX_OPERADORES))
+                if (Regex.IsMatch(token.Texto, Dicionario.REGEX_OPERADORES))
                 {
                     List<string> split = token.Texto.Split('=').ToList();
                     string variavel = split[0].ToString();
@@ -109,7 +108,8 @@ namespace Interpretador
                     {
                         NoPrincipal = new No()
                     };
-                    MontaArvoreDaExpressao(arvore.NoPrincipal, expressao);
+                    arvore.NoPrincipal = MontaArvoreDaExpressao(arvore.NoPrincipal, expressao);
+                    AdicionaAtribuidor(arvore.NoPrincipal.NoEsquerda, variavel);
                 }
                 else
                 {
@@ -131,29 +131,101 @@ namespace Interpretador
                     };
                 }
             }
+            else if (Regex.IsMatch(token.Texto, Dicionario.REGEX_OPERADORES))
+            {
+                List<string> expressao = token.Texto.Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
 
-            return null;
+                arvore = new Arvore()
+                {
+                    NoPrincipal = new No()
+                };
+                arvore.NoPrincipal = MontaArvoreDaExpressao(arvore.NoPrincipal, expressao);
+            }
+
+            return arvore;
         }
 
-        public static void MontaArvoreDaExpressao(No no, List<string> expressao)
+        public static void AdicionaAtribuidor(No no, string variavel)
         {
-            //string valor = String.Empty;
-            //for(int i = expressao.Count - 1; i > 0; i--)
-            //{
-            //    if(Regex.IsMatch(expressao[i], Dicionario.DELIMITADORES))
-            //    {
-            //        valor = expressao[i].ToString();
-            //        string expressaoSplit = String.Join<string>(" ", expressao);
-            //        List<string> expressaoTratada = expressaoSplit.Split(valor[0]).ToList();
-            //        List<string> expressaoDireita = expressaoTratada[0].ToString().Split(' ').ToList();
-            //        List<string> expressaoEsquerda = expressaoTratada[1].ToString().Split(' ').ToList();
-            //        no.Valor = valor;
-            //        no.NoDireito = new No();
-            //        no.NoEsquerda = new No();
-            //        MontaArvoreDaExpressao(no.NoDireito, expressaoDireita);
-            //        MontaArvoreDaExpressao(no.NoEsquerda, expressaoEsquerda);
-            //    }
-            //}
+            if (String.IsNullOrEmpty(no.Valor) || no == null)
+            {
+                no.Valor = "=";
+                no.NoDireito = new No();
+                no.NoEsquerda = new No()
+                {
+                    Valor = variavel
+                };
+                return;
+            }
+            else
+            {
+                AdicionaAtribuidor(no.NoEsquerda, variavel);
+            }
+        }
+
+        public static No MontaArvoreDaExpressao(No no, List<string> expressao)
+        {
+            string valor = String.Empty;
+
+            //Checar numeros 
+            for (int i = expressao.Count - 1; i >= 0; i--)
+            {
+                if (Regex.IsMatch(expressao[i], Dicionario.REGEX_NUMEROS))
+                {
+                    valor = expressao[i].ToString();
+                    string expressaoSplit = String.Join<string>(" ", expressao);
+                    List<string> expressaoTratada = expressaoSplit.Split(valor[0]).ToList();
+                    List<string> expressaoDireita = expressaoTratada[0].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
+                    List<string> expressaoEsquerda = expressaoTratada[1].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
+                    no.Valor = valor;
+                    no.NoDireito = new No();
+                    no.NoEsquerda = new No();
+                    MontaArvoreDaExpressao(no.NoDireito, expressaoDireita);
+                    MontaArvoreDaExpressao(no.NoEsquerda, expressaoEsquerda);
+                }
+            }
+
+            valor = String.Empty;
+
+            //Checar operadores
+            for (int i = expressao.Count - 1; i >= 0; i--)
+            {
+                if (Regex.IsMatch(expressao[i], Dicionario.REGEX_OPERADORES))
+                {
+                    valor = expressao[i].ToString();
+                    string expressaoSplit = String.Join<string>(" ", expressao);
+                    List<string> expressaoTratada = expressaoSplit.Split(valor[0]).ToList();
+                    List<string> expressaoDireita = expressaoTratada[0].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
+                    List<string> expressaoEsquerda = expressaoTratada[1].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
+                    no.Valor = valor;
+                    no.NoDireito = new No();
+                    no.NoEsquerda = new No();
+                    MontaArvoreDaExpressao(no.NoDireito, expressaoDireita);
+                    MontaArvoreDaExpressao(no.NoEsquerda, expressaoEsquerda);
+                }
+            }
+
+            valor = String.Empty;
+
+            //Checar delimitadores;
+            for (int i = expressao.Count - 1; i >= 0; i--)
+            {
+                if (Regex.IsMatch(expressao[i], Dicionario.DELIMITADORES))
+                {
+                    valor = expressao[i].ToString();
+                    string expressaoSplit = String.Join<string>(" ", expressao);
+                    List<string> expressaoTratada = expressaoSplit.Split(valor[0]).ToList();
+                    List<string> expressaoDireita = expressaoTratada[0].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
+                    List<string> expressaoEsquerda = expressaoTratada[1].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
+                    no.Valor = valor;
+                    no.NoDireito = new No();
+                    no.NoEsquerda = new No();
+                    MontaArvoreDaExpressao(no.NoDireito, expressaoDireita);
+                    MontaArvoreDaExpressao(no.NoEsquerda, expressaoEsquerda);
+                }
+            }
+
+            return no;
         }
 
         public static bool ValidaPrograma(Token token)
@@ -203,9 +275,9 @@ namespace Interpretador
                 }
             }
 
-            foreach(string acesso in token.AcessoValorVariaveis)
+            foreach (string acesso in token.AcessoValorVariaveis)
             {
-                if(!Regex.IsMatch(acesso, Dicionario.REGEX_ACESSO_VARIAVEL))
+                if (!Regex.IsMatch(acesso, Dicionario.REGEX_ACESSO_VARIAVEL))
                 {
                     Console.WriteLine("O valor {0} foi declarado de forma errada", acesso);
                     return false;
