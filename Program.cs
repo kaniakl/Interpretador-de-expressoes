@@ -12,6 +12,7 @@ namespace Interpretador
         static void Main(string[] args)
         {
             List<Token> Tokens = null;
+            Parser syntaxParser = new Parser();
 
             while (true)
             {
@@ -59,6 +60,17 @@ namespace Interpretador
                 Console.WriteLine("Seu programa passou pela analise sintatica");
             }
 
+            int i = 0;
+            foreach (Arvore linhaDeCodigo in arvores)
+            {
+                syntaxParser.analiseSemantica(linhaDeCodigo.NoPrincipal, Tokens[i]);
+                i++;
+            }
+            foreach (KeyValuePair<string, int> entry in syntaxParser.variaveis)
+            {
+                Console.WriteLine("Variavel> {0} ", entry.Key);
+                Console.WriteLine("Valor> {0} ", entry.Value);
+            }
 
             Console.ReadKey();
         }

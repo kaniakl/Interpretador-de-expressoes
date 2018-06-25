@@ -5,10 +5,14 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
+
 namespace Interpretador
 {
-    public static class Parser
+
+    public class Parser
     {
+        public Dictionary<string, int> variaveis = new Dictionary<string, int>();
+
         public static void ParserExpressao(string[] fileLines, List<Token> Tokens)
         {
             foreach (string linha in fileLines)
@@ -89,6 +93,7 @@ namespace Interpretador
         public static Arvore MontaArvore(Token token)
         {
             Arvore arvore = null;
+            No auxDebug = null;
 
             if (!ValidaPrograma(token))
             {
@@ -108,8 +113,8 @@ namespace Interpretador
                     {
                         NoPrincipal = new No()
                     };
-                    arvore.NoPrincipal = MontaArvoreDaExpressao(arvore.NoPrincipal, expressao);
-                    AdicionaAtribuidor(arvore.NoPrincipal.NoEsquerda, variavel);
+                    AdicionaAtribuidor(arvore.NoPrincipal, variavel);
+                    auxDebug = MontaArvoreDaExpressao(arvore.NoPrincipal.NoDireito, expressao);
                 }
                 else
                 {
@@ -139,11 +144,13 @@ namespace Interpretador
                 {
                     NoPrincipal = new No()
                 };
-                arvore.NoPrincipal = MontaArvoreDaExpressao(arvore.NoPrincipal, expressao);
+                auxDebug = MontaArvoreDaExpressao(arvore.NoPrincipal, expressao);
             }
-
+            Console.WriteLine("Debug: ");
+            printArvore(arvore.NoPrincipal, 0);
             return arvore;
         }
+
 
         public static void AdicionaAtribuidor(No no, string variavel)
         {
@@ -285,6 +292,169 @@ namespace Interpretador
             }
 
             return true;
+        }
+
+        public int analiseSemantica(No expressao, Token tokens)
+        {
+            int resultado = avaliacao_expr(expressao, tokens);
+            variaveis.Add(procurar_variavel(expressao, tokens), resultado);
+            return 0;
+        }
+
+        private static string procurar_variavel(No expressao, Token tokens)
+        {
+            string str = "VALOR_EXPRESSAO";
+            if (expressao.NoEsquerda != null && str.Equals("VALOR_EXPRESSAO"))
+            {
+                str = procurar_variavel(expressao.NoEsquerda, tokens);
+            }
+            if (tokens.Atribuidor.Contains(expressao.Valor))
+            {
+                str = expressao.NoEsquerda.Valor.Replace("var ", "").Replace(" ", "");
+                return str;
+            }
+            if (expressao.NoDireito != null && str.Equals("VALOR_EXPRESSAO"))
+            {
+                str = procurar_variavel(expressao.NoDireito, tokens);
+            }
+
+            return str;
+
+        }
+
+        public int avaliacao_expr(No expressao, Token tokens)
+        {
+            string dec_var = "";
+            if (expressao.Valor == "")
+            {
+                return 0;
+            }
+            if (tokens.Atribuidor.Contains(expressao.Valor))
+            {
+                try
+                {
+                    if (variaveis.ContainsKey((expressao.NoEsquerda.Valor.Replace("var ", ""))))
+                    {
+                        throw new CustomException();
+                    }
+                    else
+                    {
+                        return avaliacao_expr(expressao.NoDireito, tokens);
+                    }
+                }
+                catch (CustomException e)
+                {
+                    e.VariavelDuplicada(expressao.NoEsquerda.Valor.Replace("var ", ""));
+                    Console.ReadKey();
+                    Environment.Exit(3);
+                    return 0;
+                }
+            }
+            try
+            {
+                if (tokens.Numeros.Contains(expressao.Valor))
+                {
+                    return Int32.Parse(expressao.Valor);
+                }
+                else if (Regex.IsMatch(expressao.Valor, Dicionario.REGEX_VARIAVEIS))
+                {
+                    if (!tokens.Variaveis.Contains(expressao.Valor))
+                    {
+                        throw new CustomException();
+                    }
+                    else
+                    {
+                        return variaveis[expressao.Valor];
+                    }
+                }
+                else if (tokens.Operadores.Contains(expressao.Valor))
+                {
+                    if (expressao.Valor == "+")
+                    {
+                        return avaliacao_expr(expressao.NoDireito, tokens) +
+                            avaliacao_expr(expressao.NoEsquerda, tokens);
+                    }
+                    else if (expressao.Valor == "-")
+                    {
+                        return avaliacao_expr(expressao.NoDireito, tokens) -
+                            avaliacao_expr(expressao.NoEsquerda, tokens);
+                    }
+                    else if (expressao.Valor == "*")
+                    {
+                        return avaliacao_expr(expressao.NoDireito, tokens) *
+                            avaliacao_expr(expressao.NoEsquerda, tokens);
+                    }
+                    else if (expressao.Valor == "^")
+                    {
+                        return (int)Math.Pow(avaliacao_expr(expressao.NoDireito, tokens),
+                            avaliacao_expr(expressao.NoEsquerda, tokens));
+                    }
+                    else
+                    {
+                        int divisor = avaliacao_expr(expressao.NoDireito, tokens);
+                        int dividendo = avaliacao_expr(expressao.NoEsquerda, tokens);
+                        try
+                        {
+                            if (dividendo == 0)
+                            {
+                                throw new CustomException();
+                            }
+                            else
+                            {
+                                return divisor / dividendo;
+                            }
+                        }
+                        catch (CustomException e)
+                        {
+                            e.DivisaoPorZero();
+                            Console.ReadKey();
+                            Environment.Exit(1);
+                            return 0;
+                        }
+                    }
+                }
+                else
+                {
+                    return -avaliacao_expr(expressao, tokens);
+                }
+            }
+            catch (CustomException e)
+            {
+                e.VariavelNaoDeclarada(dec_var);
+                Console.ReadKey();
+                Environment.Exit(2);
+                return 0;
+            }
+        }
+
+
+        private static void printArvore(No no, int altura)
+        {
+            if (no != null)
+            {
+                printArvore(no.NoEsquerda, altura += 1);
+                Console.WriteLine("[{0}] ", no.Valor);
+                printArvore(no.NoDireito, altura += 1);
+            }
+        }
+    }
+
+    class CustomException : ApplicationException
+    {
+        public void VariavelDuplicada(string variavel)
+        {
+            Console.WriteLine("a variavel {0} foi declarada duas ou mais vezes." + 
+                " Abortando o programa. . .", variavel);
+        }
+        public void DivisaoPorZero()
+        {
+            Console.WriteLine("Divisão por zero encontrada no programa." + 
+                " Abortando o programa. . .");
+        }
+        public void VariavelNaoDeclarada(string variavel)
+        {
+            Console.WriteLine("Uma tentativa de uso de variavel não" +
+                " declarada foi encontrada. Abortando o programa...", variavel);
         }
     }
 }
