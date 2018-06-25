@@ -108,13 +108,13 @@ namespace Interpretador
                     List<string> split = token.Texto.Split('=').ToList();
                     string variavel = split[0].ToString();
                     List<string> expressao = split[1].Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
-
+                    List<string> ordemOp = precedencia(expressao);
                     arvore = new Arvore()
                     {
                         NoPrincipal = new No()
                     };
                     AdicionaAtribuidor(arvore.NoPrincipal, variavel);
-                    auxDebug = MontaArvoreDaExpressao(arvore.NoPrincipal.NoDireito, expressao);
+                    auxDebug = MontaArvoreDaExpressao(arvore.NoPrincipal.NoDireito, expressao, ordemOp);
                 }
                 else
                 {
@@ -144,7 +144,8 @@ namespace Interpretador
                 {
                     NoPrincipal = new No()
                 };
-                auxDebug = MontaArvoreDaExpressao(arvore.NoPrincipal, expressao);
+                List<string> ordemOp = precedencia(expressao);
+                auxDebug = MontaArvoreDaExpressao(arvore.NoPrincipal, expressao, ordemOp);
             }
             Console.WriteLine("Debug: ");
             printArvore(arvore.NoPrincipal, 0);
@@ -170,7 +171,48 @@ namespace Interpretador
             }
         }
 
-        public static No MontaArvoreDaExpressao(No no, List<string> expressao)
+        public static List<string> precedencia(List<string> expr)
+        {
+            List<string> precedenciaOp = new List<string>();
+            for (int i = 0; i < expr.Count - 1; i++)
+            {
+                if (Regex.IsMatch(expr[i], Dicionario.REGEX_OPERADORES))
+                {
+                    if (expr[i] == "^")
+                    {
+                        precedenciaOp.Insert(0, expr[i]);
+                    }
+                    else if (expr[i] == "+" || expr[i] == "-")
+                    {
+                        precedenciaOp.Add(expr[i]);
+                    }
+                    else
+                    {
+                        if (precedenciaOp.Count() == 0)
+                        {
+                            precedenciaOp.Add(expr[i]);
+                            break;
+                        }
+                        for (int itLista = 0; itLista < precedenciaOp.Count(); itLista++)
+                        {
+                            if (precedenciaOp[itLista] == "^")
+                            {
+                                continue;
+                            }
+                            else
+                            {
+                                precedenciaOp.Insert(itLista, expr[i]);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            precedenciaOp.Reverse();
+            return precedenciaOp;
+        }
+
+        public static No MontaArvoreDaExpressao(No no, List<string> expressao, List<string> precedenciaOp)
         {
             string valor = String.Empty;
 
@@ -185,30 +227,6 @@ namespace Interpretador
                     List<string> expressaoDireita = expressaoTratada[0].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
                     List<string> expressaoEsquerda = expressaoTratada[1].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
                     no.Valor = valor;
-                    no.NoDireito = new No();
-                    no.NoEsquerda = new No();
-                    MontaArvoreDaExpressao(no.NoDireito, expressaoDireita);
-                    MontaArvoreDaExpressao(no.NoEsquerda, expressaoEsquerda);
-                }
-            }
-
-            valor = String.Empty;
-
-            //Checar operadores
-            for (int i = expressao.Count - 1; i >= 0; i--)
-            {
-                if (Regex.IsMatch(expressao[i], Dicionario.REGEX_OPERADORES))
-                {
-                    valor = expressao[i].ToString();
-                    string expressaoSplit = String.Join<string>(" ", expressao);
-                    List<string> expressaoTratada = expressaoSplit.Split(valor[0]).ToList();
-                    List<string> expressaoDireita = expressaoTratada[0].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
-                    List<string> expressaoEsquerda = expressaoTratada[1].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
-                    no.Valor = valor;
-                    no.NoDireito = new No();
-                    no.NoEsquerda = new No();
-                    MontaArvoreDaExpressao(no.NoDireito, expressaoDireita);
-                    MontaArvoreDaExpressao(no.NoEsquerda, expressaoEsquerda);
                 }
             }
 
@@ -227,8 +245,39 @@ namespace Interpretador
                     no.Valor = valor;
                     no.NoDireito = new No();
                     no.NoEsquerda = new No();
-                    MontaArvoreDaExpressao(no.NoDireito, expressaoDireita);
-                    MontaArvoreDaExpressao(no.NoEsquerda, expressaoEsquerda);
+                    MontaArvoreDaExpressao(no.NoDireito, expressaoDireita, precedenciaOp);
+                    MontaArvoreDaExpressao(no.NoEsquerda, expressaoEsquerda, precedenciaOp);
+                }
+            }
+
+            valor = String.Empty;
+
+            //Checar operadores
+            for (int i = expressao.Count - 1; i >= 0; i--)
+            {
+                if (Regex.IsMatch(expressao[i], Dicionario.REGEX_OPERADORES))
+                {
+                    if (precedenciaOp.Count() > 0) 
+                    {
+                        if (expressao[i] != precedenciaOp[0])
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            precedenciaOp.RemoveAt(0);
+                            valor = expressao[i].ToString();
+                            string expressaoSplit = String.Join<string>(" ", expressao);
+                            List<string> expressaoTratada = expressaoSplit.Split(valor.ToCharArray(), 2).ToList();
+                            List<string> expressaoDireita = expressaoTratada[0].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
+                            List<string> expressaoEsquerda = expressaoTratada[1].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
+                            no.Valor = valor;
+                            no.NoDireito = new No();
+                            no.NoEsquerda = new No();
+                            MontaArvoreDaExpressao(no.NoDireito, expressaoDireita, precedenciaOp);
+                            MontaArvoreDaExpressao(no.NoEsquerda, expressaoEsquerda, precedenciaOp);
+                        }
+                    }
                 }
             }
 
@@ -354,7 +403,14 @@ namespace Interpretador
             {
                 if (tokens.Numeros.Contains(expressao.Valor))
                 {
-                    return Int32.Parse(expressao.Valor);
+                    string replace_delim = "";
+                    Match m = Regex.Match(expressao.Valor, Dicionario.DELIMITADORES);
+                    if (m.Success)
+                    {
+                        replace_delim = m.Value;
+                    }
+                    return Int32.Parse(expressao.Valor
+                        .Replace(replace_delim, ""));
                 }
                 else if (Regex.IsMatch(expressao.Valor, Dicionario.REGEX_VARIAVEIS))
                 {
