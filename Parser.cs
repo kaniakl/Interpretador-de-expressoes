@@ -46,7 +46,21 @@ namespace Interpretador
                 }
                 else if (Regex.IsMatch(palavras[i], Dicionario.REGEX_NUMEROS))
                 {
-                    token.Numeros.Add(palavras[i]);
+                    Match abertura = Regex.Match(palavras[i], Dicionario.DELIMITADORES_ABERTURA);
+                    Match fechamento = Regex.Match(palavras[i], Dicionario.DELIMITADORES_FECHAMENTO);
+                    string numero = palavras[i];
+                    if (abertura.Success)
+                    {
+                        token.Delimitadores.Add(abertura.Value);
+                        numero = palavras[i].Replace(abertura.Value, "");
+                    }
+                    else if (fechamento.Success)
+                    {
+                        token.Delimitadores.Add(fechamento.Value);
+                        numero = palavras[i].Replace(fechamento.Value, "");
+
+                    }
+                    token.Numeros.Add(numero);
                 }
                 else if (Regex.IsMatch(palavras[i], Dicionario.REGEX_ACESSO_VARIAVEL))
                 {
@@ -56,7 +70,8 @@ namespace Interpretador
                 {
                     token.Operadores.Add(palavras[i]);
                 }
-                else if (Regex.IsMatch(palavras[i], Dicionario.DELIMITADORES))
+                else if (Regex.IsMatch(palavras[i], Dicionario.DELIMITADORES_ABERTURA) ||
+                   Regex.IsMatch(palavras[i], Dicionario.DELIMITADORES_FECHAMENTO))
                 {
                     token.Delimitadores.Add(palavras[i]);
                 }
@@ -212,6 +227,53 @@ namespace Interpretador
             return precedenciaOp;
         }
 
+        public static string getFechamento(string abertura)
+        {
+            string close = "";
+            switch (abertura)
+            {
+                case "(":
+                    close = ")";
+                    break;
+                case "[":
+                    close = "]";
+                    break;
+                case "{":
+                    close = "}";
+                    break;
+                
+                default:
+                    break;
+            }
+            return close;
+        }
+
+        public static List<string> tratar_expressao(List<string> expr)
+        {
+            List<string> expr_tratada = new List<string>();
+            Match abertura; 
+            Match fechamento;
+
+            foreach (string elemento in expr)
+            {
+                abertura = Regex.Match(elemento, Dicionario.DELIMITADORES_ABERTURA);
+                fechamento = Regex.Match(elemento, Dicionario.DELIMITADORES_FECHAMENTO);
+                if (abertura.Success)
+                {
+                    expr_tratada.Add(elemento.Replace(abertura.Value, ""));
+                }
+                else if (fechamento.Success)
+                {
+                    expr_tratada.Add(elemento.Replace(fechamento.Value, ""));
+                }
+                else
+                {
+                    expr_tratada.Add(elemento);
+                }
+            }
+            return expr_tratada;
+        }
+
         public static No MontaArvoreDaExpressao(No no, List<string> expressao, List<string> precedenciaOp)
         {
             string valor = String.Empty;
@@ -233,31 +295,65 @@ namespace Interpretador
             valor = String.Empty;
 
             //Checar delimitadores;
-            for (int i = expressao.Count - 1; i >= 0; i--)
+            Match abertura;
+            string fechamento;
+            for (int i = 0; i < expressao.Count(); i++)
             {
-                if (Regex.IsMatch(expressao[i], Dicionario.DELIMITADORES))
+                // se achou delimitador
+                if ((abertura = Regex.Match(expressao[i], Dicionario.DELIMITADORES_ABERTURA)).Success)
                 {
-                    valor = expressao[i].ToString();
-                    string expressaoSplit = String.Join<string>(" ", expressao);
-                    List<string> expressaoTratada = expressaoSplit.Split(valor[0]).ToList();
-                    List<string> expressaoDireita = expressaoTratada[0].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
-                    List<string> expressaoEsquerda = expressaoTratada[1].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
-                    no.Valor = valor;
-                    no.NoDireito = new No();
-                    no.NoEsquerda = new No();
-                    MontaArvoreDaExpressao(no.NoDireito, expressaoDireita, precedenciaOp);
-                    MontaArvoreDaExpressao(no.NoEsquerda, expressaoEsquerda, precedenciaOp);
+                    // pega o fechamento do delimitador
+                    fechamento = getFechamento(abertura.Value);
+                    try
+                    {
+                        // easter egg
+                        if (fechamento == "")
+                        {
+                            Console.WriteLine("Deu ruim");
+                            throw new CustomException();
+                        }
+                    }
+                    catch (CustomException e)
+                    {
+                        e.DivisaoPorZero();
+                        Environment.Exit(666);
+                    }
+                    List<string> expr_entre_delim = new List<string>();
+                    for (int j = i; j < expressao.Count(); j++)
+                    {
+                        if (!Regex.IsMatch(expressao[j], "[" + fechamento + "]"))
+                        {
+                            // percorrer a expressão até achar o fechamento do delimitador encontrado
+                            expr_entre_delim.Add(expressao[j]);
+                            continue;
+                        }
+                        else
+                        {
+                            expr_entre_delim.Add(expressao[j]);
+                        }
+                        // ao achar, repartir a expressão entre 1: (expressao-entre-delimitadores), 2: resto da expressão
+                        // tratar a expressao com os delimitadores para removê-los
+                        List<string> expressaoEsquerda = tratar_expressao(expr_entre_delim);
+                        // CORRIGIR ISSO EXCEPT NÃO FUNCIONA
+                        List<string> expressaoDireita = expressao.Except(expr_entre_delim).ToList();
+                        no.Valor = abertura.Value + fechamento;
+                        no.NoDireito = new No();
+                        no.NoEsquerda = new No();
+                        MontaArvoreDaExpressao(no.NoDireito, expressaoDireita, precedenciaOp);
+                        MontaArvoreDaExpressao(no.NoEsquerda, expressaoEsquerda, precedenciaOp);
+                    }
                 }
             }
 
             valor = String.Empty;
+
 
             //Checar operadores
             for (int i = expressao.Count - 1; i >= 0; i--)
             {
                 if (Regex.IsMatch(expressao[i], Dicionario.REGEX_OPERADORES))
                 {
-                    if (precedenciaOp.Count() > 0) 
+                    if (precedenciaOp.Count() > 0)
                     {
                         if (expressao[i] != precedenciaOp[0])
                         {
@@ -315,10 +411,129 @@ namespace Interpretador
 
             foreach (string delimitador in token.Delimitadores)
             {
-                if (!Regex.IsMatch(delimitador, Dicionario.DELIMITADORES))
+                if (!Regex.IsMatch(delimitador, Dicionario.DELIMITADORES_ABERTURA) &&
+                    !Regex.IsMatch(delimitador, Dicionario.DELIMITADORES_FECHAMENTO))
                 {
                     Console.WriteLine("O delimitador {0} foi declarado de forma errada", delimitador);
                     return false;
+                }
+            }
+            List<string> delimitadores_abertura = new List<string> { "(", "[", "{" };
+            List<string> delimitadores_fechamento = new List<string> { ")", "]", "}" };
+            List<string> delimitadores_encontrados = token.Delimitadores;
+            // versao simplificada de checagem de parênteses
+            //while (delimitadores_encontrados.Count > 0)
+            //{
+            //    if (delimitadores_encontrados.Count() % 2 != 0)
+            //    {
+            //        Console.WriteLine("A expressão possui desbalanceamento de delimitadores.");
+            //        return false;
+            //    }
+            //    for (int itDelim = 0; itDelim < delimitadores_encontrados.Count(); itDelim += 1)
+            //    {
+            //        if (delimitadores_encontrados[itDelim] ==
+            //              delimitadores_abertura[0])
+            //        {
+            //            delimitadores_encontrados.Remove("(");
+            //            if (delimitadores_encontrados.Contains(")"))
+            //            {
+            //                delimitadores_encontrados.Remove(")");
+            //            }
+            //            else
+            //            {
+            //                Console.WriteLine("A expressão possui desbalanceamento de delimitadores.");
+            //                return false;
+            //            }
+            //        }
+            //    }
+            //}
+
+            while (delimitadores_encontrados.Count > 0)
+            {
+                for (int itDelim = 0; itDelim < delimitadores_encontrados.Count(); itDelim += 1)
+                {
+                    if (delimitadores_encontrados[itDelim] ==
+                        delimitadores_abertura[0])
+                    {
+                        // achou "(", procurar pelo ")" antes de encontrar "}" ou "]"
+                        for (int closeDelim = itDelim; closeDelim < delimitadores_encontrados.Count(); closeDelim += 1)
+                        {
+                            // achou o respectivo ")"
+                            if (delimitadores_encontrados[closeDelim] ==
+                                delimitadores_fechamento[0])
+                            {
+                                delimitadores_encontrados.RemoveAt(closeDelim);
+                                delimitadores_encontrados.RemoveAt(itDelim);
+                                break;
+                            }
+                            else if (delimitadores_encontrados[closeDelim] ==
+                                delimitadores_fechamento[1] ||
+                                delimitadores_encontrados[closeDelim] ==
+                                delimitadores_fechamento[2])
+                            {
+                                // achou "}" ou "]" antes de encontrar o respectivo ")"
+                                Console.WriteLine("A expressão possui um erro de sintaxe nos delimitadores.");
+                                return false;
+                            }
+                            else if (closeDelim == delimitadores_encontrados.Count() - 1)
+                            {
+                                // percorreu expressão e não encontrou correspondente
+                                Console.WriteLine("A expressão possui desbalanceamento de delimitadores.");
+                                return false;
+                            }
+                        }
+                    }
+                    else if (delimitadores_encontrados[itDelim] ==
+                        delimitadores_abertura[1])
+                    {
+                        // achou "[", procurar pelo "]" antes de encontrar "}"
+                        for (int closeDelim = itDelim; closeDelim < delimitadores_encontrados.Count(); closeDelim += 1)
+                        {
+                            // achou o respectivo "]"
+                            if (delimitadores_encontrados[closeDelim] ==
+                                delimitadores_fechamento[1])
+                            {
+                                delimitadores_encontrados.RemoveAt(closeDelim);
+                                delimitadores_encontrados.RemoveAt(itDelim);
+                                break;
+                            }
+                            else if (delimitadores_encontrados[closeDelim] ==
+                                delimitadores_fechamento[2])
+                            {
+                                // achou "}" antes de encontrar o respectivo "]"
+                                Console.WriteLine("A expressão possui um erro de sintaxe nos delimitadores.");
+                                return false;
+                            }
+                            else if (closeDelim == delimitadores_encontrados.Count() - 1)
+                            {
+                                // percorreu expressão e não encontrou correspondente
+                                Console.WriteLine("A expressão possui desbalanceamento de delimitadores.");
+                                return false;
+                            }
+                        }
+                    }
+                    else if (delimitadores_encontrados[itDelim] ==
+                        delimitadores_abertura[2])
+                    {
+                        // achou "{", procurar pelo "}"
+                        for (int closeDelim = itDelim; closeDelim < delimitadores_encontrados.Count(); closeDelim += 1)
+                        {
+                            // achou o respectivo "}"
+                            if (delimitadores_encontrados[closeDelim] ==
+                                delimitadores_fechamento[2])
+                            {
+                                delimitadores_encontrados.RemoveAt(closeDelim);
+                                delimitadores_encontrados.RemoveAt(itDelim);
+                                break;
+                            }
+                            else if (closeDelim == delimitadores_encontrados.Count() - 1)
+                            {
+                                // percorreu expressão e não encontrou correspondente
+                                Console.WriteLine("A expressão possui desbalanceamento de delimitadores.");
+                                return false;
+                            }
+                        }
+                    }
                 }
             }
 
@@ -378,6 +593,11 @@ namespace Interpretador
             {
                 return 0;
             }
+            if (Regex.IsMatch(expressao.Valor, Dicionario.DELIMITADORES_ABERTURA) ||
+                Regex.IsMatch(expressao.Valor, Dicionario.DELIMITADORES_FECHAMENTO))
+            {
+                return avaliacao_expr(expressao.NoDireito, tokens);
+            }
             if (tokens.Atribuidor.Contains(expressao.Valor))
             {
                 try
@@ -403,14 +623,7 @@ namespace Interpretador
             {
                 if (tokens.Numeros.Contains(expressao.Valor))
                 {
-                    string replace_delim = "";
-                    Match m = Regex.Match(expressao.Valor, Dicionario.DELIMITADORES);
-                    if (m.Success)
-                    {
-                        replace_delim = m.Value;
-                    }
-                    return Int32.Parse(expressao.Valor
-                        .Replace(replace_delim, ""));
+                    return Int32.Parse(expressao.Valor);
                 }
                 else if (Regex.IsMatch(expressao.Valor, Dicionario.REGEX_VARIAVEIS))
                 {
@@ -499,12 +712,12 @@ namespace Interpretador
     {
         public void VariavelDuplicada(string variavel)
         {
-            Console.WriteLine("a variavel {0} foi declarada duas ou mais vezes." + 
+            Console.WriteLine("a variavel {0} foi declarada duas ou mais vezes." +
                 " Abortando o programa. . .", variavel);
         }
         public void DivisaoPorZero()
         {
-            Console.WriteLine("Divisão por zero encontrada no programa." + 
+            Console.WriteLine("Divisão por zero encontrada no programa." +
                 " Abortando o programa. . .");
         }
         public void VariavelNaoDeclarada(string variavel)

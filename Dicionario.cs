@@ -8,7 +8,8 @@ namespace Interpretador
 {
     public static class Dicionario
     {
-        public static readonly string DELIMITADORES = "[\\{\\[\\(\\)\\]\\}]";
+        public static readonly string DELIMITADORES_ABERTURA = "[\\{\\[\\(]";
+        public static readonly string DELIMITADORES_FECHAMENTO= "[)\\]\\}]";
         public static readonly string REGEX_OPERADORES = "[\\+\\-\\/\\*\\^]{1}";
         public static readonly string ATRIBUIDOR = "=";
         public static readonly string REGEX_ACESSO_VARIAVEL = "\\@[a-z]+";
