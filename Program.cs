@@ -63,7 +63,7 @@ namespace Interpretador
             int i = 0;
             foreach (Arvore linhaDeCodigo in arvores)
             {
-                syntaxParser.analiseSemantica(linhaDeCodigo.NoPrincipal, Tokens[i]);
+                syntaxParser.analiseSemantica(linhaDeCodigo.NoPrincipal, Tokens[i], Tokens);
                 i++;
             }
             foreach (KeyValuePair<string, int> entry in syntaxParser.variaveis)

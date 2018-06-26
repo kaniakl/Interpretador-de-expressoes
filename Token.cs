@@ -14,6 +14,7 @@ namespace Interpretador
         public List<string> Delimitadores { get; set; }
         public List<string> Atribuidor { get; set; }
         public List<string> AcessoValorVariaveis { get; set; }
+        public List<string> DeclaracaoVariavel { get; set; }
         public string Texto { get; set; }
 
         public Token()
@@ -24,6 +25,7 @@ namespace Interpretador
             this.Delimitadores = new List<string>();
             this.Atribuidor = new List<string>();
             this.AcessoValorVariaveis = new List<string>();
+            this.DeclaracaoVariavel = new List<string>();
             this.Texto = String.Empty;
         }
     }

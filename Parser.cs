@@ -36,7 +36,19 @@ namespace Interpretador
             List<string> palavras = linha.Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
             for (int i = 0; i < palavras.Count; i++)
             {
-                if (Regex.IsMatch(palavras[i], Dicionario.REGEX_VARIAVEIS) && !palavras[i].Equals("var"))
+                if (Regex.IsMatch(palavras[i], Dicionario.REGEX_DECLARACAO_VARIAVEL))
+                {
+                    if (Regex.IsMatch(palavras[1], Dicionario.REGEX_VARIAVEIS) && !palavras[1].Equals("var"))
+                    {
+                        token.DeclaracaoVariavel.Add(palavras[1]);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Declaracao de variavel inconsistente");
+                        return null;
+                    }
+                }
+               else if (Regex.IsMatch(palavras[i], Dicionario.REGEX_VARIAVEIS) && !palavras[i].Equals("var"))
                 {
                     token.Variaveis.Add(palavras[i]);
                 }
@@ -241,7 +253,7 @@ namespace Interpretador
                 case "{":
                     close = "}";
                     break;
-                
+
                 default:
                     break;
             }
@@ -251,7 +263,7 @@ namespace Interpretador
         public static List<string> tratar_expressao(List<string> expr)
         {
             List<string> expr_tratada = new List<string>();
-            Match abertura; 
+            Match abertura;
             Match fechamento;
 
             foreach (string elemento in expr)
@@ -278,25 +290,10 @@ namespace Interpretador
         {
             string valor = String.Empty;
 
-            //Checar numeros 
-            for (int i = expressao.Count - 1; i >= 0; i--)
-            {
-                if (Regex.IsMatch(expressao[i], Dicionario.REGEX_NUMEROS))
-                {
-                    valor = expressao[i].ToString();
-                    string expressaoSplit = String.Join<string>(" ", expressao);
-                    List<string> expressaoTratada = expressaoSplit.Split(valor[0]).ToList();
-                    List<string> expressaoDireita = expressaoTratada[0].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
-                    List<string> expressaoEsquerda = expressaoTratada[1].ToString().Split(' ').ToList().Where(x => !String.IsNullOrEmpty(x)).ToList();
-                    no.Valor = valor;
-                }
-            }
-
-            valor = String.Empty;
-
-            //Checar delimitadores;
             Match abertura;
             string fechamento;
+            Stack<string> exprInterna = new Stack<string>();
+
             for (int i = 0; i < expressao.Count(); i++)
             {
                 // se achou delimitador
@@ -325,12 +322,24 @@ namespace Interpretador
                         if (!Regex.IsMatch(expressao[j], "[" + fechamento + "]"))
                         {
                             // percorrer a expressão até achar o fechamento do delimitador encontrado PELO INDICE
+                            if (Regex.IsMatch(expressao[j], "[" + abertura.Value + "]"))
+                            {
+                                exprInterna.Push(expressao[j]);
+                            }
                             index.Add(j);
                             continue;
                         }
                         else
                         {
                             index.Add(j);
+                            if (exprInterna.Count() != 0)
+                            {
+                                exprInterna.Pop();
+                            }
+                            if (exprInterna.Count() != 0)
+                            {
+                                continue;
+                            }
                         }
                         // ao achar, repartir a expressão entre 1: (expressao-entre-delimitadores), 2: resto da expressão
                         // tratar a expressao com os delimitadores para removê-los
@@ -340,6 +349,10 @@ namespace Interpretador
                             expr_entre_delim.Add(expressao.ElementAt(index[it]));
 
                         }
+                        //if ((index[0] - 0))
+                        //{
+
+                        //}
                         List<string> expressaoEsquerda = tratar_expressao(expr_entre_delim);
                         // CORRIGIR ISSO SE PRECISAR
                         expressao.RemoveRange(index[0], index.Count());
@@ -349,16 +362,10 @@ namespace Interpretador
                         no.NoEsquerda = new No();
                         MontaArvoreDaExpressao(no.NoDireito, expressaoDireita, precedenciaOp);
                         MontaArvoreDaExpressao(no.NoEsquerda, expressaoEsquerda, precedenciaOp);
+                        break;
                     }
                 }
-            }
 
-            valor = String.Empty;
-
-
-            //Checar operadores
-            for (int i = expressao.Count - 1; i >= 0; i--)
-            {
                 if (Regex.IsMatch(expressao[i], Dicionario.REGEX_OPERADORES))
                 {
                     if (precedenciaOp.Count() > 0)
@@ -380,8 +387,20 @@ namespace Interpretador
                             no.NoEsquerda = new No();
                             MontaArvoreDaExpressao(no.NoDireito, expressaoDireita, precedenciaOp);
                             MontaArvoreDaExpressao(no.NoEsquerda, expressaoEsquerda, precedenciaOp);
+                            break;
                         }
                     }
+                }
+
+                if (Regex.IsMatch(expressao[i], Dicionario.REGEX_NUMEROS))
+                {
+                    valor = expressao[i].ToString();
+                    no.Valor = valor;
+                }
+                if (Regex.IsMatch(expressao[i], Dicionario.REGEX_VARIAVEIS))
+                {
+                    valor = expressao[i].ToString();
+                    no.Valor = valor;
                 }
             }
 
@@ -566,13 +585,13 @@ namespace Interpretador
             return true;
         }
 
-        public int analiseSemantica(No expressao, Token tokens)
+        public int analiseSemantica(No expressao, Token tokens, List<Token> tokensVerificacao)
         {
-            int resultado = avaliacao_expr(expressao, tokens);
+            int resultado = avaliacao_expr(expressao, tokens, tokensVerificacao);
             variaveis.Add(procurar_variavel(expressao, tokens), resultado);
             return 0;
         }
-
+        
         private static string procurar_variavel(No expressao, Token tokens)
         {
             string str = "VALOR_EXPRESSAO";
@@ -594,7 +613,7 @@ namespace Interpretador
 
         }
 
-        public int avaliacao_expr(No expressao, Token tokens)
+        public int avaliacao_expr(No expressao, Token tokens, List<Token> tokensVerificacao)
         {
             string dec_var = "";
             if (expressao.Valor == "")
@@ -604,7 +623,7 @@ namespace Interpretador
             if (Regex.IsMatch(expressao.Valor, Dicionario.DELIMITADORES_ABERTURA) ||
                 Regex.IsMatch(expressao.Valor, Dicionario.DELIMITADORES_FECHAMENTO))
             {
-                return avaliacao_expr(expressao.NoDireito, tokens);
+                return avaliacao_expr(expressao.NoDireito, tokens, tokensVerificacao);
             }
             if (tokens.Atribuidor.Contains(expressao.Valor))
             {
@@ -616,7 +635,7 @@ namespace Interpretador
                     }
                     else
                     {
-                        return avaliacao_expr(expressao.NoDireito, tokens);
+                        return avaliacao_expr(expressao.NoDireito, tokens, tokensVerificacao);
                     }
                 }
                 catch (CustomException e)
@@ -635,7 +654,7 @@ namespace Interpretador
                 }
                 else if (Regex.IsMatch(expressao.Valor, Dicionario.REGEX_VARIAVEIS))
                 {
-                    if (!tokens.Variaveis.Contains(expressao.Valor))
+                    if (!tokensVerificacao.Any(x => x.DeclaracaoVariavel.Contains(expressao.Valor)))
                     {
                         throw new CustomException();
                     }
@@ -648,28 +667,28 @@ namespace Interpretador
                 {
                     if (expressao.Valor == "+")
                     {
-                        return avaliacao_expr(expressao.NoDireito, tokens) +
-                            avaliacao_expr(expressao.NoEsquerda, tokens);
+                        return avaliacao_expr(expressao.NoDireito, tokens, tokensVerificacao) +
+                            avaliacao_expr(expressao.NoEsquerda, tokens, tokensVerificacao);
                     }
                     else if (expressao.Valor == "-")
                     {
-                        return avaliacao_expr(expressao.NoDireito, tokens) -
-                            avaliacao_expr(expressao.NoEsquerda, tokens);
+                        return avaliacao_expr(expressao.NoDireito, tokens, tokensVerificacao) -
+                            avaliacao_expr(expressao.NoEsquerda, tokens, tokensVerificacao);
                     }
                     else if (expressao.Valor == "*")
                     {
-                        return avaliacao_expr(expressao.NoDireito, tokens) *
-                            avaliacao_expr(expressao.NoEsquerda, tokens);
+                        return avaliacao_expr(expressao.NoDireito, tokens, tokensVerificacao) *
+                            avaliacao_expr(expressao.NoEsquerda, tokens, tokensVerificacao);
                     }
                     else if (expressao.Valor == "^")
                     {
-                        return (int)Math.Pow(avaliacao_expr(expressao.NoDireito, tokens),
-                            avaliacao_expr(expressao.NoEsquerda, tokens));
+                        return (int)Math.Pow(avaliacao_expr(expressao.NoDireito, tokens, tokensVerificacao),
+                            avaliacao_expr(expressao.NoEsquerda, tokens, tokensVerificacao));
                     }
                     else
                     {
-                        int divisor = avaliacao_expr(expressao.NoDireito, tokens);
-                        int dividendo = avaliacao_expr(expressao.NoEsquerda, tokens);
+                        int divisor = avaliacao_expr(expressao.NoDireito, tokens, tokensVerificacao);
+                        int dividendo = avaliacao_expr(expressao.NoEsquerda, tokens, tokensVerificacao);
                         try
                         {
                             if (dividendo == 0)
@@ -692,7 +711,7 @@ namespace Interpretador
                 }
                 else
                 {
-                    return -avaliacao_expr(expressao, tokens);
+                    return -avaliacao_expr(expressao, tokens, tokensVerificacao);
                 }
             }
             catch (CustomException e)
