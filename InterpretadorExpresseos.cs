@@ -12,7 +12,7 @@ namespace Interpretador
     {
         public static List<Token> Interpreta(string nomeArquivo)
         {
-            string extensao = nomeArquivo.Split('.').ToList()[1];
+           string extensao = nomeArquivo.Split('.').ToList()[1];
 
             if (!extensao.Equals("calc"))
             {
