@@ -318,24 +318,32 @@ namespace Interpretador
                         e.DivisaoPorZero();
                         Environment.Exit(666);
                     }
+                    List<int> index = new List<int>();
                     List<string> expr_entre_delim = new List<string>();
                     for (int j = i; j < expressao.Count(); j++)
                     {
                         if (!Regex.IsMatch(expressao[j], "[" + fechamento + "]"))
                         {
-                            // percorrer a expressão até achar o fechamento do delimitador encontrado
-                            expr_entre_delim.Add(expressao[j]);
+                            // percorrer a expressão até achar o fechamento do delimitador encontrado PELO INDICE
+                            index.Add(j);
                             continue;
                         }
                         else
                         {
-                            expr_entre_delim.Add(expressao[j]);
+                            index.Add(j);
                         }
                         // ao achar, repartir a expressão entre 1: (expressao-entre-delimitadores), 2: resto da expressão
                         // tratar a expressao com os delimitadores para removê-los
+                        for (int it = 0; it < index.Count(); it++)
+                        {
+                            //montar a expressão com os índices encontrados
+                            expr_entre_delim.Add(expressao.ElementAt(index[it]));
+
+                        }
                         List<string> expressaoEsquerda = tratar_expressao(expr_entre_delim);
-                        // CORRIGIR ISSO EXCEPT NÃO FUNCIONA
-                        List<string> expressaoDireita = expressao.Except(expr_entre_delim).ToList();
+                        // CORRIGIR ISSO SE PRECISAR
+                        expressao.RemoveRange(index[0], index.Count());
+                        List<string> expressaoDireita = expressao;
                         no.Valor = abertura.Value + fechamento;
                         no.NoDireito = new No();
                         no.NoEsquerda = new No();
